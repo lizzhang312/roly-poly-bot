@@ -38,8 +38,8 @@ const uint8_t encoder_right_2 = 0;
 Adafruit_LSM6DSOX imu_shell;
 Adafruit_LSM6DSOX imu_wheels;
 // imu addresses
-const uint8_t imu_shell_add = 0x6A;   // subject to change
-const uint8_t imu_wheels_add = 0x6B;   // subject to change
+const uint8_t imu_shell_add = 0x6B;   // subject to change
+//const uint8_t imu_wheels_add = 0x6B;   // subject to change (Need to find the right port for this)
 
 // Bluetooth stuff
 USB Usb;
@@ -56,6 +56,43 @@ int left_spd;
 int right_spd;
 int LeftJoystick;
 int RightJoystick;
+
+// Delay for the IMUs
+// unsigned long lastImuPrint = 0;
+const unsigned long imuInterval = 1000;
+float angleX = 0, angleY = 0, angleZ = 0;
+unsigned long lastImuMillis;
+unsigned long lastImuPrint;
+const unsigned long IMU_PRINT_INTERVAL = 200;  // ms between prints
+
+void initIMUIntegration() {
+  lastImuMillis = millis();
+  lastImuPrint = lastImuMillis;
+}
+
+void updateAndPrintIMU() {
+  // 1) Read raw accel/gyro
+  sensors_event_t accel, gyro, temp;
+  imu_shell.getEvent(&accel, &gyro, &temp);
+
+  // 2) Compute Δt (s)
+  unsigned long now = millis();
+  float dt = (now - lastImuMillis) / 1000.0f;
+  lastImuMillis = now;
+
+  // 3) Integrate to angles
+  angleX += gyro.gyro.x * dt;
+  angleY += gyro.gyro.y * dt;
+  angleZ += gyro.gyro.z * dt;
+
+  // 4) Throttle printing
+  if (now - lastImuPrint >= IMU_PRINT_INTERVAL) {
+    lastImuPrint = now;
+    Serial.print("Roll: ");  Serial.print(angleX, 1);
+    Serial.print("  Pitch: "); Serial.print(angleY, 1);
+    Serial.print("  Yaw: ");   Serial.println(angleZ, 1);
+  }
+}
 
 void shellOpenAlignment(){
   Serial.println("Trying to align...");
@@ -105,10 +142,10 @@ void shellOpenClose(){
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
-  while (!Serial) {
-    // comment this loop out when running the code detached!
-    delay(10);
-  }
+  // while (!Serial) {
+  //   // comment this loop out when running the code detached!
+  //   delay(10);
+  // }
   Serial.println("Serial is set up!");
 
   // set up servos
@@ -122,23 +159,19 @@ void setup() {
   pinMode(lock_h, OUTPUT);
   Serial.println("Locks are set up!");
   
-  Wire.begin();   // not sure if this is still needed... probably not
-  // enable IMU's
-  // if (!imu_shell.begin_I2C(imu_shell_add)) {
-  //   Serial.println("Connecting to shell IMU...");
-  //   while (1) {
-  //     delay(10);
-  //   }
+  Wire.begin();   // This is needed for the IMUs
   // }
-  // if (!imu_wheels.begin_I2C(imu_wheels_add)) {
-  //   Serial.println("Connecting to wheels IMU...");
-  //   while (1) {
-  //     delay(10);
-  //   }
-  // }
-  imu_shell.begin_I2C(imu_shell_add);
-  imu_wheels.begin_I2C(imu_wheels_add);
-  Serial.println("IMU's are set up!");
+  // imu_shell.begin_I2C(imu_shell_add);
+  // imu_wheels.begin_I2C(imu_wheels_add);
+  // Serial.println("IMU's are set up!");
+      // 0x6A is the default I²C address for the LSM6DSO on the MinIMU‑9 v6
+    if (!imu_shell.begin_I2C(0x6B)) {
+      Serial.println("Failed to find MinIMU-9 v6 (LSM6DSO)!");
+      while (1) delay(10);
+    }
+    Serial.println("MinIMU-9 v6 gyro initialized.");
+    initIMUIntegration();
+  
 
   // Bluetooth
   #if !defined(__MIPSEL__)
@@ -167,7 +200,7 @@ void setup() {
   for(int i = 0; i < 4; i++){
     servos[i].write(servoOpenAngles[i]);
   }
-  Serial.println("Done with setup!");
+  Serial.println("\nDone with setup!");
 }
 
 void runMotor(bool moveForward, bool leftMotor, int spd){
@@ -198,7 +231,6 @@ void runMotor(bool moveForward, bool leftMotor, int spd){
       digitalWrite(wheel_right_2, moveForward ? HIGH : LOW);
     }
   }
-
 }
 
 void getControllerInfo() {
@@ -211,8 +243,8 @@ void getControllerInfo() {
     }
     LeftJoystick = PS5.getAnalogHat(LeftHatY);  // number from 0 (up) to 255 (down)
     RightJoystick = PS5.getAnalogHat(RightHatY);
-    Serial.println(LeftJoystick);
-    Serial.println(RightJoystick);
+    // Serial.println(LeftJoystick);
+    // Serial.println(RightJoystick);
     if (LeftJoystick < 117){
       // left wheel forward
       Serial.println("left wheel forward!");
@@ -308,8 +340,16 @@ void checkModeChange(){
 }
 
 void loop() {
+    unsigned long now = millis();
+  if (now - lastImuPrint >= imuInterval) {
+    lastImuPrint = now;
+    // read + print your IMU once:
+    sensors_event_t accel, gyro, temp;
+    imu_shell.getEvent(&accel, &gyro, &temp);
+  }
   // put your main code here, to run repeatedly:
   getControllerInfo();
+  updateAndPrintIMU(); 
   // collectIMUData();
   // checkModeChange();
 }
