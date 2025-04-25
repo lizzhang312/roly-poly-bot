@@ -441,8 +441,8 @@ void getControllerInfo2(){
       speed += 50;
       Serial.print("speed is ");
       Serial.println(speed);
-      analogWrite(left_led, speed+offset);
-      analogWrite(right_led, speed);
+      // analogWrite(left_led, speed+offset);
+      // analogWrite(right_led, speed);
     }
     else if (msg==SDbut){
       speed -= 50;
@@ -451,8 +451,8 @@ void getControllerInfo2(){
       }
       Serial.print("speed is ");
       Serial.println(speed);
-      analogWrite(left_led, speed+offset);
-      analogWrite(right_led, speed);
+      // analogWrite(left_led, speed+offset);
+      // analogWrite(right_led, speed);
     }
     else if (msg==OUbut){
       offset += 10;
@@ -460,8 +460,16 @@ void getControllerInfo2(){
       Serial.println(offset);
       Serial.print("speed is ");
       Serial.println(speed);
-      analogWrite(left_led, speed+offset);
-      analogWrite(right_led, speed);
+      // analogWrite(left_led, speed+offset);
+      // analogWrite(right_led, speed);
+      if (offset>0){
+        analogWrite(left_led, 150);
+        analogWrite(right_led, 0);
+      }
+      else{
+        analogWrite(left_led, 0);
+        analogWrite(right_led, 150);
+      }
     }
     else if (msg==ODbut){
       offset -= 10;
@@ -469,8 +477,16 @@ void getControllerInfo2(){
       Serial.println(offset);
       Serial.print("speed is ");
       Serial.println(speed);
-      analogWrite(left_led, speed+offset);
-      analogWrite(right_led, speed);
+      if (offset>0){
+        analogWrite(left_led, 150);
+        analogWrite(right_led, 0);
+      }
+      else{
+        analogWrite(left_led, 0);
+        analogWrite(right_led, 150);
+      }
+      // analogWrite(left_led, speed+offset);
+      // analogWrite(right_led, speed);
     }
     // else{
     //     runMotor(true, true, 0);
